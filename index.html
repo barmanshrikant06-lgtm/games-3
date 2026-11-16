@@ -1,384 +1,423 @@
 
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GTA City 2D</title>
+<title>2D Open World City</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{overflow:hidden;background:#222;font-family:Arial}
-canvas{display:block;width:100vw;height:100vh}
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#426b37;font-family:Arial}
+canvas{display:block}
 #hud{
-position:absolute;top:12px;left:12px;
-color:white;background:#111d;padding:13px;
-border-radius:10px;line-height:1.7;
-pointer-events:none
+position:fixed;top:12px;left:12px;
+background:#111d;color:white;padding:12px;
+border-radius:12px;line-height:1.7;
 }
 #help{
-position:absolute;bottom:12px;left:50%;
+position:fixed;bottom:12px;left:50%;
 transform:translateX(-50%);
-background:#111d;color:white;
-padding:10px 14px;border-radius:10px;
-font-size:13px;text-align:center;
+color:white;background:#111d;
+padding:10px;border-radius:10px;
+font-size:12px;text-align:center;
 }
-#mobile{
-position:absolute;bottom:75px;left:15px;
-display:none;grid-template-columns:repeat(3,55px);
-gap:5px
+#buttons{
+position:fixed;bottom:65px;left:15px;
+display:grid;grid-template-columns:repeat(3,55px);
+gap:5px;
 }
-#mobile button,#action{
-border:0;border-radius:12px;
-background:#ffffffbb;font-size:23px;
-width:55px;height:48px
+button{
+width:55px;height:48px;border:0;
+border-radius:12px;background:#ffffffcc;
+font-size:20px;
 }
-#action{
-position:absolute;bottom:90px;right:20px;
-width:90px;height:60px;font-size:15px;
-background:#ffcc33
-}
-@media(pointer:coarse){
-#mobile{display:grid}
-#help{bottom:12px;font-size:11px}
+#enter{
+position:fixed;bottom:80px;right:15px;
+width:80px;height:60px;background:#ffca28;
+font-size:14px;
 }
 </style>
 </head>
 <body>
 
 <div id="hud">
-<h3>🌆 GTA CITY 2D</h3>
+<b>🌆 MY OPEN WORLD</b><br>
 💰 Money: $5000<br>
 🚗 Mode: <span id="mode">Walking</span><br>
-⚡ Speed: <span id="speed">0</span><br>
-📍 City Explorer
+⚡ Speed: <span id="speed">0</span>
 </div>
+
+<div id="buttons">
+<button style="grid-column:2" data-k="w">⬆️</button>
+<button data-k="a">⬅️</button>
+<button data-k="s">⬇️</button>
+<button data-k="d">➡️</button>
+</div>
+<button id="enter">ENTER 🚗</button>
 
 <div id="help">
-W A S D / Arrow Keys = Move |
-E = Enter / Exit Car
+WASD / Arrow Keys: Move | E: Enter/Exit Car
 </div>
 
-<div id="mobile">
-<button data-key="w" style="grid-column:2">⬆️</button>
-<button data-key="a">⬅️</button>
-<button data-key="s">⬇️</button>
-<button data-key="d">➡️</button>
-</div>
-<button id="action">ENTER 🚗</button>
-
-<canvas id="game"></canvas>
+<canvas id="c"></canvas>
 
 <script>
-const canvas=document.getElementById("game");
+const canvas=document.getElementById("c");
 const ctx=canvas.getContext("2d");
 
+let W,H;
 function resize(){
-canvas.width=innerWidth;
-canvas.height=innerHeight;
+ W=canvas.width=innerWidth;
+ H=canvas.height=innerHeight;
 }
 resize();
-addEventListener("resize",resize);
+onresize=resize;
 
-const world={w:2400,h:2400};
-const player={x:1200,y:1200,a:0,speed:3};
-let car=null;
-let camera={x:0,y:0};
-let keys={};
+const WORLD=4000;
+const TILE=400;
+
+const player={x:2000,y:2000};
+const camera={x:0,y:0};
+const keys={};
+let currentCar=null;
 
 const buildings=[];
-const trees=[];
 const cars=[];
+const trees=[];
 
-// Roads
-const roads=[];
-for(let i=200;i<2400;i+=400){
- roads.push({x:i-55,y:0,w:110,h:2400});
- roads.push({x:0,y:i-55,w:2400,h:110});
+// City layout
+const roadPositions=[];
+for(let p=200;p<WORLD;p+=TILE){
+ roadPositions.push(p);
 }
 
 // Buildings
-const colors=["#c6b49c","#a9b7bd","#e3c99e",
-"#aaa4b5","#d2d2c9","#b5a18b"];
+const buildingColors=[
+ "#d6c3a2","#b6bec3","#c7b4a1",
+ "#a6a8b8","#e0d8c7","#b3a99c"
+];
 
-for(let x=30;x<2400;x+=400){
- for(let y=30;y<2400;y+=400){
-  if(Math.random()<0.2)continue;
-  buildings.push({
-   x:x+100+Math.random()*100,
-   y:y+100+Math.random()*100,
-   w:100+Math.random()*65,
-   h:100+Math.random()*65,
-   c:colors[Math.floor(Math.random()*colors.length)]
-  });
+for(let x=30;x<WORLD;x+=TILE){
+ for(let y=30;y<WORLD;y+=TILE){
+  for(let i=0;i<3;i++){
+   buildings.push({
+    x:x+30+Math.random()*220,
+    y:y+30+Math.random()*220,
+    w:75+Math.random()*75,
+    h:75+Math.random()*75,
+    color:buildingColors[
+     Math.floor(Math.random()*buildingColors.length)
+    ]
+   });
+  }
  }
 }
 
 // Trees
-for(let i=0;i<170;i++){
+for(let i=0;i<500;i++){
  trees.push({
-  x:Math.random()*2400,
-  y:Math.random()*2400,
-  r:12+Math.random()*7
+  x:Math.random()*WORLD,
+  y:Math.random()*WORLD,
+  r:10+Math.random()*8
  });
 }
 
 // Cars
-const carColors=["#e53935","#1976d2","#f4c430",
-"#eeeeee","#111111","#16a085"];
+const colors=["#ed2525","#1679df","#eeeeee",
+"#e7b321","#222222","#19a88a"];
 
-function createCar(x,y,color){
- cars.push({
-  x,y,a:Math.random()*6.28,
-  speed:0,color
- });
+function addCar(x,y,color){
+ cars.push({x,y,a:0,speed:0,color});
 }
-for(let i=0;i<35;i++){
- createCar(
-  200+Math.random()*2000,
-  200+Math.random()*2000,
-  carColors[i%carColors.length]
+for(let i=0;i<65;i++){
+ addCar(
+  200+Math.random()*3600,
+  200+Math.random()*3600,
+  colors[i%colors.length]
  );
 }
-createCar(1200,1250,"#ff2222");
+addCar(2000,2050,"#ff2222");
 
-// Draw building
+// Drawing road
+function drawRoads(){
+ ctx.fillStyle="#353535";
+ for(let p of roadPositions){
+  ctx.fillRect(p-48,0,96,WORLD);
+  ctx.fillRect(0,p-48,WORLD,96);
+ }
+
+ ctx.strokeStyle="#eeeeee";
+ ctx.lineWidth=3;
+ ctx.setLineDash([25,25]);
+
+ for(let p of roadPositions){
+  ctx.beginPath();
+  ctx.moveTo(p,0);
+  ctx.lineTo(p,WORLD);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0,p);
+  ctx.lineTo(WORLD,p);
+  ctx.stroke();
+ }
+ ctx.setLineDash([]);
+}
+
+// Buildings
 function drawBuilding(b){
  ctx.fillStyle="#0005";
- ctx.fillRect(b.x+7,b.y+8,b.w,b.h);
- ctx.fillStyle=b.c;
+ ctx.fillRect(b.x+8,b.y+9,b.w,b.h);
+
+ ctx.fillStyle=b.color;
  ctx.fillRect(b.x,b.y,b.w,b.h);
 
- ctx.fillStyle="#777";
- ctx.fillRect(b.x,b.y,b.w,8);
+ ctx.fillStyle="#888";
+ ctx.fillRect(b.x,b.y,b.w,7);
 
- ctx.fillStyle="#62b8d1";
- for(let x=b.x+12;x<b.x+b.w-8;x+=30){
-  for(let y=b.y+20;y<b.y+b.h-8;y+=30){
-   ctx.fillRect(x,y,15,18);
+ ctx.fillStyle="#64b9db";
+ for(let xx=b.x+10;xx<b.x+b.w-10;xx+=27){
+  for(let yy=b.y+15;yy<b.y+b.h-10;yy+=27){
+   ctx.fillRect(xx,yy,13,15);
   }
  }
 
- ctx.fillStyle="#66452c";
- ctx.fillRect(b.x+b.w/2-9,b.y+b.h-25,18,25);
+ ctx.fillStyle="#65452b";
+ ctx.fillRect(b.x+b.w/2-8,b.y+b.h-22,16,22);
 }
 
-// Draw car
+// Houses
+function drawHouse(x,y){
+ ctx.fillStyle="#a67c52";
+ ctx.fillRect(x,y,85,70);
+ ctx.fillStyle="#8b3529";
+ ctx.beginPath();
+ ctx.moveTo(x-10,y);
+ ctx.lineTo(x+42,y-30);
+ ctx.lineTo(x+95,y);
+ ctx.fill();
+ ctx.fillStyle="#55351e";
+ ctx.fillRect(x+35,y+40,18,30);
+}
+
+// Trees
+function drawTree(t){
+ ctx.fillStyle="#654321";
+ ctx.fillRect(t.x-3,t.y,6,12);
+ ctx.fillStyle="#17632b";
+ ctx.beginPath();
+ ctx.arc(t.x,t.y, t.r,0,7);
+ ctx.fill();
+ ctx.fillStyle="#2d9340";
+ ctx.beginPath();
+ ctx.arc(t.x-5,t.y-5,t.r*.55,0,7);
+ ctx.fill();
+}
+
+// Car
 function drawCar(c){
  ctx.save();
  ctx.translate(c.x,c.y);
  ctx.rotate(c.a);
 
  ctx.fillStyle="#111";
- ctx.fillRect(-18,-27,36,54);
+ ctx.fillRect(-17,-27,34,54);
 
  ctx.fillStyle=c.color;
- ctx.fillRect(-15,-25,30,50);
+ ctx.fillRect(-14,-24,28,48);
 
- ctx.fillStyle="#8bd6ee";
- ctx.fillRect(-12,-14,24,17);
+ ctx.fillStyle="#80d4ed";
+ ctx.fillRect(-11,-13,22,16);
 
  ctx.fillStyle="#222";
- ctx.fillRect(-12,8,24,10);
+ ctx.fillRect(-11,8,22,9);
 
- ctx.fillStyle="#ffffaa";
- ctx.fillRect(-12,-25,8,4);
- ctx.fillRect(4,-25,8,4);
+ ctx.fillStyle="#ffe99b";
+ ctx.fillRect(-11,-24,7,4);
+ ctx.fillRect(4,-24,7,4);
 
- ctx.fillStyle="#ff2222";
- ctx.fillRect(-12,21,8,4);
- ctx.fillRect(4,21,8,4);
+ ctx.fillStyle="#f22";
+ ctx.fillRect(-11,20,7,4);
+ ctx.fillRect(4,20,7,4);
 
  ctx.restore();
 }
 
-// Draw player
+// Player
 function drawPlayer(){
- ctx.save();
- ctx.translate(player.x,player.y);
-
  ctx.fillStyle="#0005";
  ctx.beginPath();
- ctx.ellipse(3,7,12,8,0,0,Math.PI*2);
+ ctx.ellipse(player.x,player.y+6,12,7,0,0,7);
  ctx.fill();
 
  ctx.fillStyle="#2455ed";
- ctx.fillRect(-9,-9,18,21);
+ ctx.fillRect(player.x-9,player.y-8,18,20);
 
- ctx.fillStyle="#e5ad83";
+ ctx.fillStyle="#e6ae83";
  ctx.beginPath();
- ctx.arc(0,-13,9,0,Math.PI*2);
+ ctx.arc(player.x,player.y-13,9,0,7);
  ctx.fill();
 
  ctx.fillStyle="#222";
- ctx.fillRect(-7,-18,14,4);
-
- ctx.restore();
+ ctx.fillRect(player.x-7,player.y-19,14,5);
 }
 
-// Keyboard
+// Controls
 addEventListener("keydown",e=>{
  keys[e.key.toLowerCase()]=true;
- if(e.key.toLowerCase()==="e")toggleCar();
+ if(e.key.toLowerCase()==="e"&&!e.repeat)toggleCar();
 });
 addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-// Mobile buttons
-document.querySelectorAll("[data-key]").forEach(btn=>{
- const k=btn.dataset.key;
- btn.addEventListener("pointerdown",e=>{
-  e.preventDefault();keys[k]=true;
- });
- ["pointerup","pointerleave","pointercancel"].forEach(ev=>{
-  btn.addEventListener(ev,()=>keys[k]=false);
- });
+document.querySelectorAll("[data-k]").forEach(b=>{
+ const k=b.dataset.k;
+ b.onpointerdown=e=>{e.preventDefault();keys[k]=true};
+ b.onpointerup=()=>keys[k]=false;
+ b.onpointerleave=()=>keys[k]=false;
+ b.onpointercancel=()=>keys[k]=false;
 });
-document.getElementById("action").onclick=toggleCar;
+
+document.getElementById("enter").onclick=toggleCar;
 
 function toggleCar(){
- if(car){
-  player.x=car.x+40;
-  player.y=car.y;
-  player.a=car.a;
-  car.speed=0;
-  car=null;
- }else{
-  let nearest=null,d=65;
-  for(const c of cars){
-   let distance=Math.hypot(c.x-player.x,c.y-player.y);
-   if(distance<d){d=distance;nearest=c;}
-  }
-  if(nearest)car=nearest;
+ if(currentCar){
+  player.x=currentCar.x+45;
+  player.y=currentCar.y;
+  currentCar.speed=0;
+  currentCar=null;
+  return;
  }
+ let nearest=null;
+ let distance=65;
+ for(const c of cars){
+  let d=Math.hypot(c.x-player.x,c.y-player.y);
+  if(d<distance){distance=d;nearest=c;}
+ }
+ if(nearest)currentCar=nearest;
 }
 
-// Movement
+// Collision with buildings
+function blocked(x,y){
+ for(const b of buildings){
+  if(x+9>b.x && x-9<b.x+b.w &&
+     y+9>b.y && y-9<b.y+b.h)return true;
+ }
+ return false;
+}
+
+// Update
 function update(){
- let speed=player.speed;
+ if(currentCar){
+  if(keys.w||keys.arrowup)currentCar.speed+=.3;
+  if(keys.s||keys.arrowdown)currentCar.speed-=.3;
+  currentCar.speed*=.98;
+  currentCar.speed=Math.max(-7,Math.min(12,currentCar.speed));
 
- if(car){
-  if(keys.w||keys.arrowup)car.speed+=0.25;
-  if(keys.s||keys.arrowdown)car.speed-=0.25;
-  car.speed*=0.97;
-  car.speed=Math.max(-6,Math.min(9,car.speed));
+  if(keys.a||keys.arrowleft)currentCar.a-=.045;
+  if(keys.d||keys.arrowright)currentCar.a+=.045;
 
-  if(keys.a||keys.arrowleft)car.a-=0.045;
-  if(keys.d||keys.arrowright)car.a+=0.045;
+  let nx=currentCar.x+Math.sin(currentCar.a)*currentCar.speed;
+  let ny=currentCar.y-Math.cos(currentCar.a)*currentCar.speed;
 
-  car.x+=Math.sin(car.a)*car.speed;
-  car.y-=Math.cos(car.a)*car.speed;
+  if(!blocked(nx,ny)){
+   currentCar.x=nx;
+   currentCar.y=ny;
+  }else currentCar.speed=0;
 
-  car.x=Math.max(15,Math.min(world.w-15,car.x));
-  car.y=Math.max(15,Math.min(world.h-15,car.y));
+  player.x=currentCar.x;
+  player.y=currentCar.y;
 
-  player.x=car.x;
-  player.y=car.y;
  }else{
   let dx=0,dy=0;
-  if(keys.w||keys.arrowup)dy-=1;
-  if(keys.s||keys.arrowdown)dy+=1;
-  if(keys.a||keys.arrowleft)dx-=1;
-  if(keys.d||keys.arrowright)dx+=1;
+  if(keys.w||keys.arrowup)dy--;
+  if(keys.s||keys.arrowdown)dy++;
+  if(keys.a||keys.arrowleft)dx--;
+  if(keys.d||keys.arrowright)dx++;
 
   if(dx||dy){
-   let l=Math.hypot(dx,dy);
-   player.x+=dx/l*speed;
-   player.y+=dy/l*speed;
+   const len=Math.hypot(dx,dy);
+   dx=dx/len*3.5;
+   dy=dy/len*3.5;
+   if(!blocked(player.x+dx,player.y))player.x+=dx;
+   if(!blocked(player.x,player.y+dy))player.y+=dy;
   }
-  player.x=Math.max(10,Math.min(world.w-10,player.x));
-  player.y=Math.max(10,Math.min(world.h-10,player.y));
  }
 
- document.getElementById("mode").innerText=car?"Driving":"Walking";
- document.getElementById("speed").innerText=car?
- Math.round(Math.abs(car.speed)*10):"0";
+ player.x=Math.max(10,Math.min(WORLD-10,player.x));
+ player.y=Math.max(10,Math.min(WORLD-10,player.y));
 
- camera.x=player.x-canvas.width/2;
- camera.y=player.y-canvas.height/2;
- camera.x=Math.max(0,Math.min(world.w-canvas.width,camera.x));
- camera.y=Math.max(0,Math.min(world.h-canvas.height,camera.y));
+ camera.x=player.x-W/2;
+ camera.y=player.y-H/2;
+ camera.x=Math.max(0,Math.min(WORLD-W,camera.x));
+ camera.y=Math.max(0,Math.min(WORLD-H,camera.y));
+
+ document.getElementById("mode").innerText=
+ currentCar?"Driving":"Walking";
+ document.getElementById("speed").innerText=
+ currentCar?Math.round(Math.abs(currentCar.speed)*12):"0";
 }
 
-function draw(){
- ctx.fillStyle="#548d49";
- ctx.fillRect(0,0,canvas.width,canvas.height);
+// Render
+function render(){
+ ctx.fillStyle="#568b46";
+ ctx.fillRect(0,0,W,H);
 
  ctx.save();
  ctx.translate(-camera.x,-camera.y);
 
- // Grass
- ctx.fillStyle="#548d49";
- ctx.fillRect(0,0,world.w,world.h);
+ ctx.fillStyle="#568b46";
+ ctx.fillRect(0,0,WORLD,WORLD);
 
- // Roads
- for(const r of roads){
-  ctx.fillStyle="#333438";
-  ctx.fillRect(r.x,r.y,r.w,r.h);
+ drawRoads();
 
-  ctx.strokeStyle="#eee";
-  ctx.lineWidth=2;
-  ctx.setLineDash([18,18]);
-
-  if(r.w<r.h){
-   ctx.beginPath();
-   ctx.moveTo(r.x+r.w/2,r.y);
-   ctx.lineTo(r.x+r.w/2,r.y+r.h);
-  }else{
-   ctx.beginPath();
-   ctx.moveTo(r.x,r.y+r.h/2);
-   ctx.lineTo(r.x+r.w,r.y+r.h/2);
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
- }
-
- // Trees
- for(const t of trees){
-  ctx.fillStyle="#654321";
-  ctx.fillRect(t.x-3,t.y,6,12);
-  ctx.fillStyle="#176b35";
-  ctx.beginPath();
-  ctx.arc(t.x,t.y, t.r,0,Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle="#298b3e";
-  ctx.beginPath();
-  ctx.arc(t.x-5,t.y-4,t.r*0.55,0,Math.PI*2);
-  ctx.fill();
- }
-
- // Buildings
+ for(const t of trees)drawTree(t);
  for(const b of buildings)drawBuilding(b);
 
- // Cars
- for(const c of cars)drawCar(c);
+ // Houses
+ for(let i=0;i<12;i++){
+  drawHouse(500+i*250,1000);
+ }
 
- // Player
- if(!car)drawPlayer();
+ for(const c of cars)drawCar(c);
+ if(!currentCar)drawPlayer();
 
  ctx.restore();
 
- // Minimap
- const mw=140,mh=140;
+ // Mini map
+ const size=145;
+ const mx=W-size-15,my=15;
  ctx.fillStyle="#111d";
- ctx.fillRect(canvas.width-mw-15,15,mw,mh);
- ctx.fillStyle="#666";
- ctx.fillRect(canvas.width-mw-10,20,mw-10,mh-10);
- ctx.fillStyle="white";
+ ctx.fillRect(mx,my,size,size);
+ ctx.fillStyle="#548b46";
+ ctx.fillRect(mx+5,my+5,size-10,size-10);
+
+ ctx.strokeStyle="#aaa";
+ ctx.lineWidth=3;
+ for(let p of roadPositions){
+  let xx=mx+5+p/WORLD*(size-10);
+  let yy=my+5+p/WORLD*(size-10);
+  ctx.beginPath();ctx.moveTo(xx,my+5);
+  ctx.lineTo(xx,my+size-5);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(mx+5,yy);
+  ctx.lineTo(mx+size-5,yy);ctx.stroke();
+ }
+
+ ctx.fillStyle="red";
  ctx.beginPath();
  ctx.arc(
-  canvas.width-mw/2-15+
-  (player.x/world.w)*(mw-15),
-  20+(player.y/world.h)*(mh-10),
-  4,0,Math.PI*2
+  mx+5+player.x/WORLD*(size-10),
+  my+5+player.y/WORLD*(size-10),
+  4,0,7
  );
  ctx.fill();
 }
 
-function loop(){
+function gameLoop(){
  update();
- draw();
- requestAnimationFrame(loop);
+ render();
+ requestAnimationFrame(gameLoop);
 }
-loop();
+gameLoop();
 </script>
 </body>
 </html>
